@@ -19,10 +19,12 @@ import { AVMButton } from "@/components/site/AVMButton";
 import { Reveal } from "@/components/site/Reveal";
 import { useAVMToast } from "@/hooks/use-avm-toast";
 import { lmsUser } from "@/lib/data";
+import { getCurrentUser, setCurrentUser } from "@/lib/portal-store";
 import { cn } from "@/lib/utils";
 
 interface LMSProfileProps {
   onLogout: () => void;
+  user?: import("@/lib/data").LMSUser;
 }
 
 interface ProfileForm {
@@ -38,14 +40,19 @@ interface PasswordForm {
   confirm: string;
 }
 
-export function LMSProfile({ onLogout }: LMSProfileProps) {
+export function LMSProfile({ onLogout, user }: LMSProfileProps) {
   const toast = useAVMToast();
+  const loggedIn = React.useMemo(() => getCurrentUser(), []);
+  const current = user || loggedIn;
+  const activeUser = current || lmsUser;
 
   const [profile, setProfile] = React.useState<ProfileForm>({
-    fullName: lmsUser.name,
-    email: lmsUser.email,
-    phone: "+91 98765 43210",
-    bio: "Full-stack developer in training. Currently focused on MERN and Java backend engineering, with a growing interest in AI/ML.",
+    fullName: activeUser.name,
+    email: activeUser.email,
+    phone: activeUser.phone || "+91 98765 43210",
+    bio: activeUser.education
+      ? `Student in ${activeUser.education} (${activeUser.yearOfStudy || "Current"}). Enrolled in ${activeUser.preferredDomain || "Engineering Track"}.`
+      : "Full-stack developer in training at AVM Smart Solutions internship program.",
   });
   const [editing, setEditing] = React.useState(false);
 
@@ -75,6 +82,14 @@ export function LMSProfile({ onLogout }: LMSProfileProps) {
       return;
     }
     setEditing(false);
+    if (loggedIn) {
+      setCurrentUser({
+        ...loggedIn,
+        name: profile.fullName,
+        email: profile.email,
+        phone: profile.phone,
+      });
+    }
     toast.success("Profile updated", "Your changes have been saved.");
   };
 
@@ -106,7 +121,7 @@ export function LMSProfile({ onLogout }: LMSProfileProps) {
               My Profile
             </h2>
             <p className="text-sm text-[var(--text-secondary)]">
-              Manage your account, settings and security.
+              Manage your personal student details and security.
             </p>
           </div>
         </div>
@@ -117,23 +132,33 @@ export function LMSProfile({ onLogout }: LMSProfileProps) {
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] p-5 md:p-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-5">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-gradient-primary text-2xl font-bold text-white shadow-glow-indigo">
-              {lmsUser.avatarInitials}
+              {activeUser.avatarInitials}
             </div>
             <div className="flex-1 min-w-0">
               <h3 className="font-heading text-xl font-semibold text-[var(--text-primary)]">
-                {lmsUser.name}
+                {activeUser.name}
               </h3>
-              <p className="text-sm text-[var(--text-secondary)]">{lmsUser.email}</p>
+              <p className="text-sm text-[var(--text-secondary)]">{activeUser.email}</p>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                 <span className="rounded-full border border-[var(--border)] px-2.5 py-0.5 text-[var(--text-secondary)]">
-                  {lmsUser.role}
+                  {activeUser.role}
                 </span>
                 <span className="rounded-full border border-[var(--border)] px-2.5 py-0.5 text-[var(--text-secondary)]">
-                  ID: {lmsUser.studentId}
+                  ID: {activeUser.studentId}
                 </span>
                 <span className="rounded-full border border-[var(--border)] px-2.5 py-0.5 text-[var(--text-secondary)]">
-                  Enrolled: {new Date(lmsUser.enrolledOn).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                  Enrolled: {new Date(activeUser.enrolledOn).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
                 </span>
+                {activeUser.preferredDomain && (
+                  <span className="rounded-full border border-indigo-500/40 bg-indigo-500/15 px-2.5 py-0.5 text-indigo-300 font-medium">
+                    Track: {activeUser.preferredDomain}
+                  </span>
+                )}
+                {activeUser.mentor && (
+                  <span className="rounded-full border border-[var(--border)] bg-[var(--bg-base)] px-2.5 py-0.5 text-[var(--text-secondary)]">
+                    Mentor: {activeUser.mentor}
+                  </span>
+                )}
               </div>
             </div>
             <AVMButton
@@ -144,6 +169,34 @@ export function LMSProfile({ onLogout }: LMSProfileProps) {
             >
               {editing ? "Cancel" : "Edit Profile"}
             </AVMButton>
+          </div>
+
+          {/* Academic & Internship Details Badge Grid */}
+          <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-[var(--border)] pt-4">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-base)] p-3">
+              <p className="text-[11px] text-[var(--text-secondary)]">Internship Track</p>
+              <p className="text-xs font-semibold text-[var(--text-primary)] mt-0.5 truncate">
+                {activeUser.preferredDomain || "Full Stack Track"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-base)] p-3">
+              <p className="text-[11px] text-[var(--text-secondary)]">Assigned Mentor</p>
+              <p className="text-xs font-semibold text-[var(--text-primary)] mt-0.5 truncate">
+                {activeUser.mentor || "Mahendra Cheerla"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-base)] p-3">
+              <p className="text-[11px] text-[var(--text-secondary)]">Education</p>
+              <p className="text-xs font-semibold text-[var(--text-primary)] mt-0.5 truncate">
+                {activeUser.education || "Undergraduate"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-base)] p-3">
+              <p className="text-[11px] text-[var(--text-secondary)]">Year of Study</p>
+              <p className="text-xs font-semibold text-[var(--text-primary)] mt-0.5 truncate">
+                {activeUser.yearOfStudy || "Current"}
+              </p>
+            </div>
           </div>
 
           {/* Edit form */}

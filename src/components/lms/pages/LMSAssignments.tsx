@@ -17,8 +17,9 @@ import { Reveal } from "@/components/site/Reveal";
 import { Modal } from "@/components/site/Modal";
 import { StatusBadge } from "@/components/lms/LMSUI";
 import { useAVMToast } from "@/hooks/use-avm-toast";
-import { lmsAssignments } from "@/lib/data";
-import type { LMSAssignment, LMSAssignmentStatus } from "@/lib/data";
+import { lmsAssignments, lmsUser } from "@/lib/data";
+import type { LMSAssignment, LMSAssignmentStatus, LMSUser } from "@/lib/data";
+import { getStudentEnrolledCourses } from "@/lib/portal-store";
 import { cn } from "@/lib/utils";
 
 type FilterTab = "All" | LMSAssignmentStatus;
@@ -41,12 +42,51 @@ const statusVariant: Record<
   overdue: "danger",
 };
 
-export function LMSAssignments() {
+interface LMSAssignmentsProps {
+  user?: LMSUser;
+}
+
+export function LMSAssignments({ user }: LMSAssignmentsProps = {}) {
   const toast = useAVMToast();
+  const activeUser = user || lmsUser;
+
+  const enrolledCourses = React.useMemo(() => {
+    return getStudentEnrolledCourses(activeUser.email, activeUser.preferredDomain);
+  }, [activeUser.email, activeUser.preferredDomain]);
+
+  const enrolledCourseIds = React.useMemo(
+    () => new Set(enrolledCourses.map((c) => c.id.toLowerCase())),
+    [enrolledCourses]
+  );
+
+  const initialItems = React.useMemo(() => {
+    const matched = lmsAssignments.filter((a) =>
+      enrolledCourseIds.has(a.courseId.toLowerCase())
+    );
+    if (matched.length > 0) return matched;
+    const primary = enrolledCourses[0];
+    return [
+      {
+        id: "asg-primary-1",
+        courseId: primary?.id || "custom",
+        courseTitle: primary?.title || activeUser.preferredDomain || "Full Stack Track",
+        title: `${primary?.title || "Course"} Capstone Milestone 1`,
+        dueDate: "2026-12-10",
+        status: "pending" as const,
+        description: `Implement the foundational architecture and setup for ${primary?.title || "your course"}.`,
+        maxMarks: 100,
+      },
+    ];
+  }, [enrolledCourseIds, enrolledCourses, activeUser.preferredDomain]);
+
   const [tab, setTab] = React.useState<FilterTab>("All");
-  const [items, setItems] = React.useState<LMSAssignment[]>(lmsAssignments);
+  const [items, setItems] = React.useState<LMSAssignment[]>(initialItems);
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [submissionText, setSubmissionText] = React.useState("");
+
+  React.useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
 
   const today = new Date("2026-11-25");
 

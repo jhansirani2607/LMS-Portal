@@ -23,6 +23,7 @@ import {
   domainOptions,
   type InternshipLevel,
 } from "@/lib/data";
+import { addAdminApplication } from "@/lib/portal-store";
 import type { NavigateFn } from "@/lib/navigation";
 
 interface InternshipsPageProps {
@@ -143,7 +144,18 @@ export function InternshipsPage({ onNavigate }: InternshipsPageProps) {
         endpoint: "/api/internship",
         successTitle: "Application submitted!",
         successDescription: "Our team will review your application and contact you within 2 business days.",
-        onSuccess: () => setData(initial),
+        onSuccess: () => {
+          addAdminApplication({
+            name: data.fullName,
+            email: data.email,
+            phone: data.phone,
+            domain: domainLabel,
+            education: data.education,
+            programType: programLabel,
+            notes: data.coverLetter ? `Cover Letter: ${data.coverLetter}` : undefined,
+          });
+          setData(initial);
+        },
       }
     );
   };

@@ -12,11 +12,13 @@ import type { NavigateFn } from "@/lib/navigation";
 
 interface LMSCertificatesProps {
   onNavigate: NavigateFn;
+  user?: import("@/lib/data").LMSUser;
 }
 
-export function LMSCertificates({ onNavigate }: LMSCertificatesProps) {
+export function LMSCertificates({ onNavigate, user }: LMSCertificatesProps) {
   const toast = useAVMToast();
   const [activeId, setActiveId] = React.useState<string | null>(null);
+  const studentName = user?.name || "Aarav Sharma";
 
   const active = lmsCertificates.find((c) => c.id === activeId) ?? null;
 
@@ -205,7 +207,7 @@ export function LMSCertificates({ onNavigate }: LMSCertificatesProps) {
                   This certifies that
                 </p>
                 <p className="font-heading text-2xl md:text-3xl font-bold text-gradient">
-                  {active.studentName}
+                  {studentName}
                 </p>
                 <p className="text-sm text-white/70 max-w-md">
                   has successfully completed the course

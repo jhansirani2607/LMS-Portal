@@ -5,7 +5,8 @@ import { ShieldCheck, Search, Award, Calendar, User, AlertCircle, CheckCircle2 }
 import { PageHeader } from "@/components/site/PageHeader";
 import { Reveal } from "@/components/site/Reveal";
 import { AVMButton } from "@/components/site/AVMButton";
-import { verifyCertificate, verifiableCertificates } from "@/lib/data";
+import { verifiableCertificates } from "@/lib/data";
+import { verifyCertificateLive } from "@/lib/portal-store";
 import type { VerifiableCertificate } from "@/lib/data";
 
 export function VerifyPage() {
@@ -23,7 +24,7 @@ export function VerifyPage() {
     e.preventDefault();
     const id = certId.trim();
     if (!id) return;
-    const cert = verifyCertificate(id);
+    const cert = verifyCertificateLive(id);
     setSearched(true);
     if (cert) {
       setResult({ status: "found", cert });
@@ -34,7 +35,7 @@ export function VerifyPage() {
 
   const trySample = () => {
     setCertId(sampleId);
-    const cert = verifyCertificate(sampleId);
+    const cert = verifyCertificateLive(sampleId);
     setSearched(true);
     if (cert) {
       setResult({ status: "found", cert });

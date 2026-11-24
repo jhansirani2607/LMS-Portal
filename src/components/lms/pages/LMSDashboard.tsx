@@ -26,10 +26,15 @@ import {
   firstIncompleteLesson,
   studentInternships,
 } from "@/lib/data";
+import {
+  getStudentEnrolledCourses,
+  getStudentPendingCourses,
+} from "@/lib/portal-store";
 import type { NavigateFn } from "@/lib/navigation";
 
 interface LMSDashboardProps {
   onNavigate: NavigateFn;
+  user?: import("@/lib/data").LMSUser;
 }
 
 const ACTIVITY_ICONS: Record<string, React.ElementType> = {
@@ -40,22 +45,102 @@ const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   enrollment: BookOpen,
 };
 
-export function LMSDashboard({ onNavigate }: LMSDashboardProps) {
-  // Pick the lowest-progress in-progress course for "Continue Learning".
+export function LMSDashboard({ onNavigate, user }: LMSDashboardProps) {
+  const activeUser = user || lmsUser;
+  const [syncKey, setSyncKey] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleSync = () => setSyncKey((k) => k + 1);
+    if (typeof window !== "undefined") {
+      window.addEventListener("avm_store_updated", handleSync);
+      window.addEventListener("storage", handleSync);
+      return () => {
+        window.removeEventListener("avm_store_updated", handleSync);
+        window.removeEventListener("storage", handleSync);
+      };
+    }
+  }, []);
+
+  const enrolledCourses = React.useMemo(() => {
+    return getStudentEnrolledCourses(activeUser.email, activeUser.preferredDomain);
+  }, [activeUser.email, activeUser.preferredDomain, syncKey]);
+
+  const pendingCourseRequests = React.useMemo(() => {
+    return getStudentPendingCourses(activeUser.email);
+  }, [activeUser.email, syncKey]);
+
+  // Pick the lowest-progress in-progress course for "Continue Learning" strictly from student's enrolled courses!
   const continueCourse = React.useMemo(() => {
-    const inProgress = lmsCourses.filter(
+    if (enrolledCourses.length === 0) return lmsCourses[0];
+    const inProgress = enrolledCourses.filter(
       (c) => c.progress > 0 && c.progress < 100
     );
-    if (inProgress.length === 0) return lmsCourses[0];
+    if (inProgress.length === 0) return enrolledCourses[0];
     return [...inProgress].sort((a, b) => a.progress - b.progress)[0];
-  }, []);
+  }, [enrolledCourses]);
 
   const nextLesson = firstIncompleteLesson(continueCourse);
 
-  // Upcoming deadlines — next 3 by due date that aren't graded/submitted.
+  const userInternships = React.useMemo(() => {
+    if (activeUser?.preferredDomain) {
+      const personalInternship = {
+        id: "active-user-internship",
+        domainId: "custom",
+        domainTitle: activeUser.preferredDomain,
+        mentorName: activeUser.mentor || "Technical Mentor (Pending Assignment)",
+        mentorRole: "Assigned Project Guide",
+        startDate: activeUser.enrolledOn || "2026-01-15",
+        duration: "12 Weeks (3 Months)",
+        progress: typeof activeUser.progress === "number" ? activeUser.progress : 15,
+        status: (activeUser.status === "Pending Approval" ? "Pending Approval" : (activeUser.status === "Rejected" ? "Rejected" : "In Progress")) as any,
+        weeklyTasks: [],
+      };
+      // For a student, show their primary internship plus any other approved courses as internship tracks
+      const additionalTracks = enrolledCourses
+        .filter((c) => c.title.toLowerCase() !== activeUser.preferredDomain?.toLowerCase())
+        .map((c) => ({
+          id: `track-${c.id}`,
+          domainId: c.id,
+          domainTitle: c.title,
+          mentorName: activeUser.mentor || "Technical Mentor",
+          mentorRole: "Course Guide",
+          startDate: "2026-02-01",
+          duration: c.duration,
+          progress: c.progress,
+          status: "In Progress" as const,
+          weeklyTasks: [],
+        }));
+      return [personalInternship, ...additionalTracks];
+    }
+    return [studentInternships[0]];
+  }, [activeUser, enrolledCourses]);
+
+  const enrolledCourseIds = React.useMemo(
+    () => new Set(enrolledCourses.map((c) => c.id.toLowerCase())),
+    [enrolledCourses]
+  );
+
+  // Upcoming deadlines — strictly matched to student's enrolled courses
   const upcomingDeadlines = React.useMemo(() => {
     const today = new Date("2026-11-25");
-    return [...lmsAssignments]
+    const matched = lmsAssignments.filter((a) =>
+      enrolledCourseIds.has(a.courseId.toLowerCase())
+    );
+
+    const source = matched.length > 0 ? matched : [
+      {
+        id: "asg-custom",
+        courseId: continueCourse.id,
+        courseTitle: continueCourse.title,
+        title: `${continueCourse.title} Project Milestone 1`,
+        dueDate: "2026-12-10",
+        status: "pending" as const,
+        description: `Complete milestone implementation for ${continueCourse.title}.`,
+        maxMarks: 100,
+      }
+    ];
+
+    return source
       .filter((a) => a.status === "pending" || a.status === "overdue")
       .sort((a, b) => +new Date(a.dueDate) - +new Date(b.dueDate))
       .slice(0, 3)
@@ -64,31 +149,39 @@ export function LMSDashboard({ onNavigate }: LMSDashboardProps) {
         const days = Math.ceil((+due - +today) / (1000 * 60 * 60 * 24));
         return { ...a, daysLeft: days };
       });
-  }, []);
+  }, [enrolledCourseIds, continueCourse]);
+
+  const totalLessonsCount = React.useMemo(() => {
+    return enrolledCourses.reduce((sum, c) => sum + (c.totalLessons || 12), 0);
+  }, [enrolledCourses]);
+
+  const completedLessonsCount = React.useMemo(() => {
+    return enrolledCourses.reduce((sum, c) => sum + (c.completedLessons || 0), 0);
+  }, [enrolledCourses]);
 
   const stats = [
     {
       label: "Enrolled Courses",
-      value: lmsDashboardStats.enrolledCourses,
+      value: enrolledCourses.length,
       icon: BookOpen,
       gradient: "from-[#6366f1] to-[#a855f7]",
     },
     {
       label: "Completed Lessons",
-      value: lmsDashboardStats.completedLessons,
-      sub: `of ${lmsDashboardStats.totalLessons}`,
+      value: completedLessonsCount,
+      sub: `of ${totalLessonsCount}`,
       icon: CheckCircle2,
       gradient: "from-[#22d3ee] to-[#6366f1]",
     },
     {
       label: "Average Score",
-      value: `${lmsDashboardStats.averageScore}%`,
+      value: `${activeUser.progress ? Math.min(100, activeUser.progress + 10) : 85}%`,
       icon: TrendingUp,
       gradient: "from-[#f59e0b] to-[#ef4444]",
     },
     {
       label: "Certificates",
-      value: lmsDashboardStats.certificatesEarned,
+      value: activeUser.progress === 100 ? 1 : 0,
       icon: Award,
       gradient: "from-[#22c55e] to-[#10b981]",
     },
@@ -101,25 +194,64 @@ export function LMSDashboard({ onNavigate }: LMSDashboardProps) {
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
           <div>
             <h2 className="font-heading text-2xl md:text-3xl font-bold text-[var(--text-primary)]">
-              Welcome back, {lmsUser.name.split(" ")[0]}
+              Welcome back, {activeUser.name.split(" ")[0]} 👋
             </h2>
             <p className="text-sm text-[var(--text-secondary)] mt-1">
-              Pick up where you left off — you&apos;ve learned{" "}
-              <span className="text-[var(--text-primary)] font-semibold">
-                {lmsDashboardStats.hoursLearned} hours
+              Enrolled Track:{" "}
+              <span className="text-[var(--primary)] font-semibold">
+                {activeUser.preferredDomain || "MERN Full Stack Development"}
               </span>{" "}
-              across {lmsDashboardStats.enrolledCourses} courses.
+              • Mentor:{" "}
+              <span className="text-[var(--text-primary)] font-semibold">
+                {activeUser.mentor || "Mahendra Cheerla"}
+              </span>{" "}
+              • Progress:{" "}
+              <span className="text-emerald-400 font-semibold">
+                {activeUser.progress ?? 68}%
+              </span>
             </p>
           </div>
-          <AVMButton
-            variant="outline"
-            onClick={() => onNavigate("student-courses")}
-            iconRight={<ArrowRight size={16} />}
-          >
-            Browse Courses
-          </AVMButton>
+          <div className="flex items-center gap-2 flex-wrap">
+            <AVMButton
+              variant="outline"
+              onClick={() => onNavigate("student-courses")}
+              iconRight={<ArrowRight size={16} />}
+            >
+              My Courses
+            </AVMButton>
+            <AVMButton
+              onClick={() => onNavigate("student-courses")}
+              icon={<BookOpen size={16} />}
+            >
+              + Enroll in Another Course
+            </AVMButton>
+          </div>
         </div>
       </Reveal>
+
+      {/* Pending Course Requests Banner */}
+      {pendingCourseRequests.length > 0 && (
+        <Reveal>
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-200 text-sm">
+            <div className="flex items-center gap-2.5">
+              <Clock size={18} className="text-amber-400 shrink-0" />
+              <span>
+                You have requested enrollment in{" "}
+                <strong className="text-white">
+                  {pendingCourseRequests.map((p) => p.courseTitle).join(", ")}
+                </strong>
+                . Awaiting Admin approval!
+              </span>
+            </div>
+            <button
+              onClick={() => onNavigate("student-courses")}
+              className="text-xs font-semibold text-amber-400 hover:text-white underline underline-offset-4 text-left"
+            >
+              View Status →
+            </button>
+          </div>
+        </Reveal>
+      )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -337,7 +469,7 @@ export function LMSDashboard({ onNavigate }: LMSDashboardProps) {
             </button>
           </div>
           <ul className="flex flex-col gap-3">
-            {studentInternships.map((si) => (
+            {userInternships.map((si) => (
               <li
                 key={si.id}
                 className="rounded-xl border border-[var(--border)] bg-[var(--bg-base)] p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"

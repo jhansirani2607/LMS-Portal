@@ -5,10 +5,68 @@ import { Briefcase, Calendar, User } from "lucide-react";
 import { Reveal } from "@/components/site/Reveal";
 import { ProgressBar, StatusBadge } from "@/components/lms/LMSUI";
 import { studentInternships } from "@/lib/data";
+import { getStudentEnrolledCourses } from "@/lib/portal-store";
 
-export function StudentInternships() {
-  const inProgress = studentInternships.filter((s) => s.status === "In Progress");
-  const completed = studentInternships.filter((s) => s.status === "Completed");
+interface StudentInternshipsProps {
+  user?: import("@/lib/data").LMSUser;
+}
+
+export function StudentInternships({ user }: StudentInternshipsProps = {}) {
+  const [syncKey, setSyncKey] = React.useState(0);
+
+  React.useEffect(() => {
+    const handleSync = () => setSyncKey((k) => k + 1);
+    if (typeof window !== "undefined") {
+      window.addEventListener("avm_store_updated", handleSync);
+      window.addEventListener("storage", handleSync);
+      return () => {
+        window.removeEventListener("avm_store_updated", handleSync);
+        window.removeEventListener("storage", handleSync);
+      };
+    }
+  }, []);
+
+  const enrolledCourses = React.useMemo(() => {
+    return getStudentEnrolledCourses(user?.email, user?.preferredDomain);
+  }, [user?.email, user?.preferredDomain, syncKey]);
+
+  const allInternships = React.useMemo(() => {
+    if (user?.preferredDomain) {
+      const personalInternship = {
+        id: "active-user-internship",
+        domainId: "custom",
+        domainTitle: user.preferredDomain,
+        mentorName: user.mentor || "Technical Mentor (Pending Assignment)",
+        mentorRole: "Assigned Project Guide",
+        startDate: user.enrolledOn || "2026-01-15",
+        duration: "12 Weeks (3 Months)",
+        progress: typeof user.progress === "number" ? user.progress : 15,
+        status: (user.status === "Pending Approval" ? "Pending Approval" : (user.status === "Rejected" ? "Rejected" : "In Progress")) as any,
+        weeklyTasks: [],
+      };
+
+      const additionalTracks = enrolledCourses
+        .filter((c) => c.title.toLowerCase() !== user.preferredDomain?.toLowerCase())
+        .map((c) => ({
+          id: `track-${c.id}`,
+          domainId: c.id,
+          domainTitle: c.title,
+          mentorName: user.mentor || "Technical Mentor",
+          mentorRole: "Assigned Guide",
+          startDate: "2026-02-01",
+          duration: c.duration,
+          progress: c.progress,
+          status: "In Progress" as const,
+          weeklyTasks: [],
+        }));
+
+      return [personalInternship, ...additionalTracks];
+    }
+    return [studentInternships[0]];
+  }, [user, enrolledCourses]);
+
+  const inProgress = allInternships.filter((s) => s.status === "In Progress" || s.status === "Pending Approval");
+  const completed = allInternships.filter((s) => s.status === "Completed");
 
   return (
     <div className="space-y-6">
@@ -36,7 +94,7 @@ export function StudentInternships() {
             <Briefcase size={20} className="text-[var(--primary)]" />
             <div>
               <p className="font-heading text-2xl font-bold text-[var(--text-primary)]">
-                {studentInternships.length}
+                {allInternships.length}
               </p>
               <p className="text-xs text-[var(--text-secondary)]">Total enrollments</p>
             </div>
@@ -144,7 +202,7 @@ export function StudentInternships() {
       )}
 
       {/* Empty state hint */}
-      {studentInternships.length === 0 && (
+      {allInternships.length === 0 && (
         <Reveal>
           <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--bg-surface)] py-16 text-center">
             <Briefcase size={32} className="mx-auto text-[var(--text-secondary)] mb-3" />

@@ -1141,9 +1141,12 @@ export interface AdminStudent {
   domain: string;
   mentor: string;
   progress: number;
-  status: "Active" | "Suspended" | "Completed";
+  status: "Active" | "Suspended" | "Completed" | "Pending" | "Rejected";
   initials: string;
   enrolledOn: string;
+  phone?: string;
+  education?: string;
+  yearOfStudy?: string;
 }
 
 // SAMPLE DATA (editable) — all students (admin view)
@@ -1375,6 +1378,13 @@ export interface LMSUser {
   role: string;
   enrolledOn: string;
   studentId: string;
+  phone?: string;
+  education?: string;
+  yearOfStudy?: string;
+  preferredDomain?: string;
+  mentor?: string;
+  progress?: number;
+  status?: string;
 }
 
 // SAMPLE — replace with the real logged-in student record
@@ -1385,6 +1395,13 @@ export const lmsUser: LMSUser = {
   role: "Student",
   enrolledOn: "2024-08-15",
   studentId: "AVM2024-0142",
+  phone: "+91 98765 43210",
+  education: "B.Tech Computer Science",
+  yearOfStudy: "3rd Year",
+  preferredDomain: "MERN Full Stack Development",
+  mentor: "Mahendra Cheerla",
+  progress: 68,
+  status: "Active",
 };
 
 export type LMSLessonType = "video" | "reading" | "quiz";
@@ -1415,7 +1432,7 @@ export interface LMSCourse {
   title: string;
   slug: string;
   instructor: string;
-  category: "Programming" | "Web Development" | "AI/ML";
+  category: "Programming" | "Web Development" | "AI/ML" | "Cloud" | "Design" | "Mobile" | "Data";
   thumbnail: string; // tailwind gradient class
   progress: number; // 0-100
   totalLessons: number;
@@ -2217,6 +2234,308 @@ export const lmsCourses: LMSCourse[] = [
       { name: "Model Deployment Guide", type: "doc" },
     ],
   },
+  {
+    id: "avm-cloud-devops",
+    title: "Cloud & DevOps Engineering",
+    slug: "cloud-devops",
+    instructor: "Sai Guru Surya Teja",
+    category: "Cloud",
+    thumbnail: "from-[#0ea5e9] to-[#6366f1]",
+    progress: 0,
+    totalLessons: 14,
+    completedLessons: 0,
+    duration: "10 weeks",
+    level: "Advanced",
+    description:
+      "Master cloud infrastructure, containerization, automated CI/CD pipelines, and observability with AWS, Docker, Kubernetes and GitHub Actions.",
+    whatYouWillLearn: [
+      "Provision and configure core AWS cloud infrastructure",
+      "Containerize microservices and applications with Docker",
+      "Build automated CI/CD delivery pipelines with GitHub Actions",
+      "Deploy, scale and manage workloads in Kubernetes clusters",
+    ],
+    modules: [
+      {
+        id: "cloud-m1",
+        title: "Linux & Cloud Infrastructure",
+        lessons: [
+          {
+            id: "cloud-l1",
+            title: "Linux Shell & Automation",
+            type: "video",
+            duration: "18:20",
+            completed: false,
+            content: "Linux command line, bash scripting, permission models, SSH configuration, and system service management.",
+          },
+          {
+            id: "cloud-l2",
+            title: "AWS Core: EC2, S3, IAM & VPC",
+            type: "video",
+            duration: "24:10",
+            completed: false,
+            content: "Deep dive into AWS fundamentals: spinning up EC2 instances, configuring IAM least-privilege policies, S3 buckets, and custom VPC networking.",
+          },
+        ],
+      },
+      {
+        id: "cloud-m2",
+        title: "Docker Containerization",
+        lessons: [
+          {
+            id: "cloud-l3",
+            title: "Containerizing Apps with Docker",
+            type: "video",
+            duration: "22:45",
+            completed: false,
+            content: "Writing multi-stage Dockerfiles, image optimization, layer caching, volume persistence, and multi-container Docker Compose.",
+          },
+          {
+            id: "cloud-l4",
+            title: "CI/CD with GitHub Actions",
+            type: "reading",
+            duration: "15 min",
+            completed: false,
+            content: "Designing automated build, test, and container push pipelines triggered on git push with secrets management.",
+          },
+        ],
+      },
+      {
+        id: "cloud-m3",
+        title: "Kubernetes & Deployment",
+        lessons: [
+          {
+            id: "cloud-l5",
+            title: "Kubernetes Deployments & Services",
+            type: "video",
+            duration: "28:30",
+            completed: false,
+            content: "Pods, Deployments, ClusterIP vs NodePort vs Ingress, ConfigMaps, and zero-downtime rolling updates on AWS EKS.",
+          },
+        ],
+      },
+    ],
+    resources: [
+      { name: "AWS Architecture Guide (PDF)", type: "pdf" },
+      { name: "Dockerfile Templates", type: "code" },
+      { name: "Kubernetes Manifests Pack", type: "code" },
+    ],
+  },
+  {
+    id: "avm-ui-ux",
+    title: "UI/UX Design & Prototyping",
+    slug: "ui-ux-design",
+    instructor: "B.V. Madhukar",
+    category: "Design",
+    thumbnail: "from-[#ec4899] to-[#8b5cf6]",
+    progress: 0,
+    totalLessons: 12,
+    completedLessons: 0,
+    duration: "8 weeks",
+    level: "Beginner",
+    description:
+      "Learn user-centered design from research and wireframing to high-fidelity clickable prototypes in Figma and comprehensive design systems.",
+    whatYouWillLearn: [
+      "Conduct user interviews and design user personas",
+      "Build responsive components with Figma Auto-Layout & Variables",
+      "Create realistic interactive prototypes and animations",
+      "Establish accessible design systems and developer handoff specs",
+    ],
+    modules: [
+      {
+        id: "design-m1",
+        title: "UX Research & Wireframing",
+        lessons: [
+          {
+            id: "design-l1",
+            title: "Design Thinking & Problem Framing",
+            type: "video",
+            duration: "16:40",
+            completed: false,
+            content: "Empathy mapping, user journey mapping, information architecture, and low-fidelity paper wireframes.",
+          },
+          {
+            id: "design-l2",
+            title: "Figma Fundamentals & Auto-Layout",
+            type: "video",
+            duration: "25:15",
+            completed: false,
+            content: "Mastering frames, constraints, nested auto-layout, typography hierarchies, and color token systems.",
+          },
+        ],
+      },
+      {
+        id: "design-m2",
+        title: "High-Fidelity Prototyping",
+        lessons: [
+          {
+            id: "design-l3",
+            title: "Interactive Components & Smart Animate",
+            type: "video",
+            duration: "21:00",
+            completed: false,
+            content: "Building interactive state variants (hover, active, disabled) and complex animations with Figma Smart Animate.",
+          },
+          {
+            id: "design-l4",
+            title: "Design System & Dev Handoff",
+            type: "reading",
+            duration: "12 min",
+            completed: false,
+            content: "Publishing Figma team libraries, documenting component tokens, and delivering inspection-ready handoffs to developers.",
+          },
+        ],
+      },
+    ],
+    resources: [
+      { name: "Figma Design System UI Kit", type: "code" },
+      { name: "UX Persona Worksheets", type: "pdf" },
+      { name: "Accessibility Checklist (WCAG)", type: "doc" },
+    ],
+  },
+  {
+    id: "avm-mobile-flutter",
+    title: "Mobile App Development (Flutter & Dart)",
+    slug: "mobile-flutter",
+    instructor: "Sai Guru Surya Teja",
+    category: "Mobile",
+    thumbnail: "from-[#06b6d4] to-[#3b82f6]",
+    progress: 0,
+    totalLessons: 14,
+    completedLessons: 0,
+    duration: "10 weeks",
+    level: "Intermediate",
+    description:
+      "Build high-performance, native cross-platform mobile apps for iOS and Android using Google's Flutter framework and Dart.",
+    whatYouWillLearn: [
+      "Write modern object-oriented Dart code with async streams",
+      "Build pixel-perfect Flutter UI with Material 3 & Cupertino widgets",
+      "Manage app-wide state with Provider and Riverpod",
+      "Connect REST APIs, Firebase Auth, Firestore, and push notifications",
+    ],
+    modules: [
+      {
+        id: "flutter-m1",
+        title: "Dart & Flutter Essentials",
+        lessons: [
+          {
+            id: "flutter-l1",
+            title: "Dart Language Fundamentals",
+            type: "video",
+            duration: "19:40",
+            completed: false,
+            content: "Sound null safety, collections, async/await, Streams, classes, mixins, and factory constructors.",
+          },
+          {
+            id: "flutter-l2",
+            title: "Widget Tree & Responsive Layouts",
+            type: "video",
+            duration: "26:10",
+            completed: false,
+            content: "Stateless vs Stateful widgets, Scaffold, Column, Row, LayoutBuilder, and adaptive styling for mobile screens.",
+          },
+        ],
+      },
+      {
+        id: "flutter-m2",
+        title: "State Management & Network APIs",
+        lessons: [
+          {
+            id: "flutter-l3",
+            title: "State Management with Provider",
+            type: "video",
+            duration: "24:30",
+            completed: false,
+            content: "ChangeNotifier, Consumer, Provider tree architecture, and separating UI presentation from business logic.",
+          },
+          {
+            id: "flutter-l4",
+            title: "REST APIs & JSON Serialization",
+            type: "reading",
+            duration: "15 min",
+            completed: false,
+            content: "HTTP client requests, handling error states, caching responses, and parsing complex nested JSON models.",
+          },
+        ],
+      },
+    ],
+    resources: [
+      { name: "Flutter Architecture Boilerplate", type: "code" },
+      { name: "Dart Cheatsheet (PDF)", type: "pdf" },
+      { name: "Play Store Release Runbook", type: "doc" },
+    ],
+  },
+  {
+    id: "avm-data-analytics",
+    title: "Data Analytics & Business Intelligence",
+    slug: "data-analytics",
+    instructor: "Molakala Murali",
+    category: "Data",
+    thumbnail: "from-[#10b981] to-[#059669]",
+    progress: 0,
+    totalLessons: 14,
+    completedLessons: 0,
+    duration: "8 weeks",
+    level: "Beginner",
+    description:
+      "Transform messy business data into actionable visual insights using SQL, Python (Pandas/NumPy), and interactive Power BI dashboards.",
+    whatYouWillLearn: [
+      "Master analytical SQL: Window functions, CTEs, and complex joins",
+      "Clean, manipulate, and aggregate tabular datasets with Pandas",
+      "Design executive Power BI dashboards with DAX measures",
+      "Tell compelling data stories that drive business decisions",
+    ],
+    modules: [
+      {
+        id: "da-m1",
+        title: "SQL & Relational Analysis",
+        lessons: [
+          {
+            id: "da-l1",
+            title: "Advanced SQL Queries & Window Functions",
+            type: "video",
+            duration: "22:10",
+            completed: false,
+            content: "ROW_NUMBER, RANK, DENSE_RANK, LAG/LEAD, running totals, Common Table Expressions, and query optimization.",
+          },
+          {
+            id: "da-l2",
+            title: "Data Wrangling with Python Pandas",
+            type: "video",
+            duration: "27:40",
+            completed: false,
+            content: "DataFrames, handling null values, groupby aggregations, pivot tables, merging datasets, and date parsing.",
+          },
+        ],
+      },
+      {
+        id: "da-m2",
+        title: "Business Intelligence & Dashboards",
+        lessons: [
+          {
+            id: "da-l3",
+            title: "Power BI Data Modeling & DAX",
+            type: "video",
+            duration: "25:50",
+            completed: false,
+            content: "Star schema data modeling, calculated columns, DAX measures (CALCULATE, FILTER, time intelligence), and drill-through filters.",
+          },
+          {
+            id: "da-l4",
+            title: "Interactive Storytelling & Reporting",
+            type: "reading",
+            duration: "10 min",
+            completed: false,
+            content: "Color palettes for data viz, KPI cards, visual hierarchy, and publishing live reports to Power BI Service.",
+          },
+        ],
+      },
+    ],
+    resources: [
+      { name: "SQL Query Master Pack", type: "code" },
+      { name: "Sample Business Datasets (CSV)", type: "code" },
+      { name: "Power BI Dashboard Template (.pbix)", type: "doc" },
+    ],
+  },
 ];
 
 export type LMSAssignmentStatus = "pending" | "submitted" | "graded" | "overdue";
@@ -2643,5 +2962,46 @@ export function flattenLessons(course: LMSCourse): { lesson: LMSLesson; module: 
 export function firstIncompleteLesson(course: LMSCourse): { lesson: LMSLesson; module: LMSModule; moduleIndex: number; lessonIndex: number } | null {
   const flat = flattenLessons(course);
   return flat.find((x) => !x.lesson.completed) ?? null;
+}
+
+/**
+ * Maps any domain title, slug, or ID to a matching LMSCourse.
+ */
+export function findCourseByDomain(domainQuery?: string): LMSCourse {
+  if (!domainQuery) return lmsCourses[0];
+  const q = domainQuery.trim().toLowerCase();
+
+  if (q.includes("python")) {
+    return lmsCourses.find((c) => c.id === "avm-python-fullstack") || lmsCourses[1];
+  }
+  if (q.includes("java") || q.includes("spring")) {
+    return lmsCourses.find((c) => c.id === "avm-java-fullstack") || lmsCourses[0];
+  }
+  if (q.includes("mern") || q.includes("react") || q.includes("web dev") || q.includes("node")) {
+    return lmsCourses.find((c) => c.id === "avm-mern-fullstack") || lmsCourses[2];
+  }
+  if (q.includes("ai") || q.includes("machine") || q.includes("ml")) {
+    return lmsCourses.find((c) => c.id === "avm-ai-ml") || lmsCourses[3];
+  }
+  if (q.includes("cloud") || q.includes("devops") || q.includes("aws") || q.includes("docker")) {
+    return lmsCourses.find((c) => c.id === "avm-cloud-devops") || lmsCourses[4];
+  }
+  if (q.includes("ui") || q.includes("ux") || q.includes("design") || q.includes("figma")) {
+    return lmsCourses.find((c) => c.id === "avm-ui-ux") || lmsCourses[5];
+  }
+  if (q.includes("flutter") || q.includes("mobile") || q.includes("dart")) {
+    return lmsCourses.find((c) => c.id === "avm-mobile-flutter") || lmsCourses[6];
+  }
+  if (q.includes("data") || q.includes("analytics") || q.includes("power bi") || q.includes("sql")) {
+    return lmsCourses.find((c) => c.id === "avm-data-analytics") || lmsCourses[7];
+  }
+
+  const matched = lmsCourses.find(
+    (c) =>
+      c.id.toLowerCase().includes(q) ||
+      c.slug.toLowerCase().includes(q) ||
+      c.title.toLowerCase().includes(q)
+  );
+  return matched || lmsCourses[0];
 }
 

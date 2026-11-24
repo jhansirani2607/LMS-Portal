@@ -55,6 +55,12 @@ import { AdminSettings } from "@/components/admin/pages/AdminSettings";
 
 import { lmsUser, currentMentor } from "@/lib/data";
 import {
+  getCurrentUser,
+  setCurrentUser as setStoredCurrentUser,
+  getAdminStudentsList,
+  type AuthUser,
+} from "@/lib/portal-store";
+import {
   AUTH_STORAGE_KEY,
   dashboardForRole,
   isPortalPage,
@@ -72,9 +78,10 @@ export default function Home() {
   const [activePage, setActivePage] = React.useState<Page>("home");
   const [params, setParams] = React.useState<NavigateParams>({});
   const [authRole, setAuthRole] = React.useState<Role | null>(null);
+  const [currentUser, setCurrentUser] = React.useState<AuthUser | null>(null);
   const [authChecked, setAuthChecked] = React.useState(false);
 
-  // Read auth role from localStorage once on mount (avoids SSR mismatch).
+  // Read auth role and user from localStorage once on mount (avoids SSR mismatch).
   React.useEffect(() => {
     try {
       const stored = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -83,10 +90,41 @@ export default function Home() {
       } else {
         setAuthRole(null);
       }
+      const user = getCurrentUser();
+      if (user) {
+        setCurrentUser(user);
+      }
     } catch {
       setAuthRole(null);
     }
     setAuthChecked(true);
+  }, []);
+
+  // Keep active user and role synchronized in real-time across tabs and admin changes
+  React.useEffect(() => {
+    const syncAuth = () => {
+      const user = getCurrentUser();
+      setCurrentUser(user);
+      try {
+        const storedRole = localStorage.getItem(AUTH_STORAGE_KEY) as Role | null;
+        if (storedRole && (storedRole === "student" || storedRole === "mentor" || storedRole === "admin")) {
+          setAuthRole(storedRole);
+        } else if (!storedRole) {
+          setAuthRole(null);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("avm_store_updated", syncAuth);
+      window.addEventListener("storage", syncAuth);
+      return () => {
+        window.removeEventListener("avm_store_updated", syncAuth);
+        window.removeEventListener("storage", syncAuth);
+      };
+    }
   }, []);
 
   const navigate = React.useCallback<NavigateFn>((page, p) => {
@@ -98,11 +136,15 @@ export default function Home() {
   }, []);
 
   const loginAsRole = React.useCallback(
-    (role: Role) => {
+    (role: Role, user?: AuthUser) => {
       try {
         localStorage.setItem(AUTH_STORAGE_KEY, role);
       } catch {
         /* ignore storage errors */
+      }
+      if (user) {
+        setStoredCurrentUser(user);
+        setCurrentUser(user);
       }
       setAuthRole(role);
       navigate(dashboardForRole(role));
@@ -116,6 +158,8 @@ export default function Home() {
     } catch {
       /* ignore */
     }
+    setStoredCurrentUser(null);
+    setCurrentUser(null);
     setAuthRole(null);
     navigate("home");
   }, [navigate]);
@@ -163,6 +207,34 @@ export default function Home() {
     );
   }
 
+  const activeStudentUser: typeof lmsUser = React.useMemo(() => {
+    if (currentUser && currentUser.role === "student") {
+      const adminList = getAdminStudentsList();
+      const adminRec = adminList.find(
+        (s) =>
+          s.id === currentUser.id ||
+          s.email.toLowerCase() === currentUser.email.toLowerCase()
+      );
+
+      return {
+        name: currentUser.name,
+        email: currentUser.email,
+        avatarInitials: currentUser.avatarInitials,
+        role: "Student",
+        enrolledOn: currentUser.enrolledOn || adminRec?.enrolledOn || "2024-08-15",
+        studentId: currentUser.id,
+        phone: currentUser.phone || adminRec?.phone || "+91 98765 43210",
+        education: currentUser.education || adminRec?.education || "B.Tech Computer Science",
+        yearOfStudy: currentUser.yearOfStudy || adminRec?.yearOfStudy || "3rd Year",
+        preferredDomain: adminRec?.domain || currentUser.preferredDomain || "MERN Full Stack Development",
+        mentor: adminRec?.mentor || currentUser.mentor || "Mahendra Cheerla",
+        progress: adminRec?.progress ?? currentUser.progress ?? 45,
+        status: adminRec?.status || currentUser.status || "Active",
+      };
+    }
+    return lmsUser;
+  }, [currentUser]);
+
   // Portal pages — wrapped in their role's layout.
   if (isPortalPage(activePage)) {
     const required = portalRoleForPage(activePage);
@@ -178,11 +250,11 @@ export default function Home() {
       return (
         <StudentLayout
           activePage={activePage}
-          user={lmsUser}
+          user={activeStudentUser}
           onNavigate={navigate}
           onLogout={logout}
         >
-          {renderStudentPage(activePage, params, navigate, logout)}
+          {renderStudentPage(activePage, params, navigate, logout, activeStudentUser)}
         </StudentLayout>
       );
     }
@@ -217,7 +289,7 @@ export default function Home() {
   if (activePage === "login") {
     if (authRole) {
       // Already logged in — render the dashboard directly to avoid a flash.
-      return renderPortalForRole(authRole, activePage, params, navigate, logout);
+      return renderPortalForRole(authRole, activePage, params, navigate, logout, activeStudentUser);
     }
     return (
       <LoginPage
@@ -264,13 +336,14 @@ function renderPortalForRole(
   activePage: Page,
   params: NavigateParams,
   navigate: NavigateFn,
-  logout: () => void
+  logout: () => void,
+  studentUser?: typeof lmsUser
 ): React.ReactNode {
   if (role === "student") {
     const dashPage = dashboardForRole("student");
     return (
-      <StudentLayout activePage={dashPage} user={lmsUser} onNavigate={navigate} onLogout={logout}>
-        <StudentDashboard onNavigate={navigate} />
+      <StudentLayout activePage={dashPage} user={studentUser || lmsUser} onNavigate={navigate} onLogout={logout}>
+        <StudentDashboard onNavigate={navigate} user={studentUser} />
       </StudentLayout>
     );
   }
@@ -313,15 +386,16 @@ function renderStudentPage(
   page: Page,
   params: NavigateParams,
   navigate: NavigateFn,
-  logout: () => void
+  logout: () => void,
+  user?: typeof lmsUser
 ): React.ReactNode {
   switch (page) {
     case "student-dashboard":
-      return <StudentDashboard onNavigate={navigate} />;
+      return <StudentDashboard onNavigate={navigate} user={user} />;
     case "student-internships":
-      return <StudentInternships />;
+      return <StudentInternships user={user} />;
     case "student-courses":
-      return <StudentCourses onNavigate={navigate} />;
+      return <StudentCourses onNavigate={navigate} user={user} />;
     case "student-course-view":
       return (
         <StudentCourseView
@@ -338,7 +412,7 @@ function renderStudentPage(
         />
       );
     case "student-assignments":
-      return <StudentAssignments />;
+      return <StudentAssignments user={user} />;
     case "student-assessments":
       return <StudentAssessments />;
     case "student-project-submission":
@@ -346,11 +420,11 @@ function renderStudentPage(
     case "student-progress":
       return <StudentProgress />;
     case "student-certificates":
-      return <StudentCertificates onNavigate={navigate} />;
+      return <StudentCertificates onNavigate={navigate} user={user} />;
     case "student-profile":
-      return <StudentProfile onLogout={logout} />;
+      return <StudentProfile onLogout={logout} user={user} />;
     default:
-      return <StudentDashboard onNavigate={navigate} />;
+      return <StudentDashboard onNavigate={navigate} user={user} />;
   }
 }
 

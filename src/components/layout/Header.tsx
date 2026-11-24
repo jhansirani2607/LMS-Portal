@@ -4,6 +4,7 @@ import * as React from "react";
 import { Menu, X, ChevronDown, LogOut, LayoutDashboard, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navItems } from "@/lib/data";
+import { getCurrentUser } from "@/lib/portal-store";
 import type { NavigateFn, Role } from "@/lib/navigation";
 import { dashboardForRole } from "@/lib/navigation";
 
@@ -18,6 +19,10 @@ export function Header({ activePage, authRole, onNavigate, onLogout }: HeaderPro
   const [scrolled, setScrolled] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+  const currentUser = React.useMemo(
+    () => (typeof window !== "undefined" ? getCurrentUser() : null),
+    [authRole, userMenuOpen]
+  );
 
   React.useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -138,10 +143,10 @@ export function Header({ activePage, authRole, onNavigate, onLogout }: HeaderPro
                       aria-expanded={userMenuOpen}
                     >
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-primary text-xs font-bold text-white uppercase">
-                        {authRole === "admin" ? "AD" : authRole === "mentor" ? "ME" : "ST"}
+                        {currentUser?.avatarInitials || (authRole === "admin" ? "AD" : authRole === "mentor" ? "ME" : "ST")}
                       </div>
-                      <span className="text-xs font-semibold text-[var(--text-primary)]">
-                        {roleLabel}
+                      <span className="text-xs font-semibold text-[var(--text-primary)] max-w-[120px] truncate">
+                        {currentUser?.name || roleLabel}
                       </span>
                       <ChevronDown
                         size={14}
@@ -153,7 +158,7 @@ export function Header({ activePage, authRole, onNavigate, onLogout }: HeaderPro
                     </button>
                     {userMenuOpen && (
                       <div
-                        className="absolute right-0 top-full mt-1 w-48 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)]/95 backdrop-blur-lg p-1.5 shadow-xl animate-[slide-down_180ms_ease]"
+                        className="absolute right-0 top-full mt-1 w-52 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)]/95 backdrop-blur-lg p-1.5 shadow-xl animate-[slide-down_180ms_ease]"
                         role="menu"
                         onClick={(e) => e.stopPropagation()}
                       >
@@ -161,8 +166,11 @@ export function Header({ activePage, authRole, onNavigate, onLogout }: HeaderPro
                           <p className="text-xs uppercase tracking-wide text-[var(--text-secondary)]">
                             Signed in as
                           </p>
-                          <p className="text-sm font-semibold text-[var(--text-primary)]">
-                            {roleLabel} Portal
+                          <p className="text-sm font-semibold text-[var(--text-primary)] truncate">
+                            {currentUser?.name || `${roleLabel} Portal`}
+                          </p>
+                          <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                            {currentUser?.email || `${authRole}@avmsmart.in`}
                           </p>
                         </div>
                         <button

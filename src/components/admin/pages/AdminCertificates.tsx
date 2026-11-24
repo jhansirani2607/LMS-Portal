@@ -9,16 +9,26 @@ import { FormField } from "@/components/site/FormField";
 import { StatusBadge } from "@/components/lms/LMSUI";
 import { useAVMToast } from "@/hooks/use-avm-toast";
 import { useFormSubmit } from "@/hooks/use-form-submit";
-import { adminCertificates, certificateEligibleStudents, internshipDomains } from "@/lib/data";
+import { internshipDomains, certificateEligibleStudents } from "@/lib/data";
+import {
+  getAdminCertificatesList,
+  issueAdminCertificate,
+  getAdminStudentsList,
+} from "@/lib/portal-store";
 import type { AdminCertificate } from "@/lib/data";
 
 export function AdminCertificates() {
   const toast = useAVMToast();
   const { submit, loading } = useFormSubmit();
-  const [items, setItems] = React.useState<AdminCertificate[]>(adminCertificates);
+  const [items, setItems] = React.useState<AdminCertificate[]>([]);
   const [viewId, setViewId] = React.useState<string | null>(null);
   const [genOpen, setGenOpen] = React.useState(false);
   const [genResult, setGenResult] = React.useState<AdminCertificate | null>(null);
+
+  // Load certificates and student candidates on mount
+  React.useEffect(() => {
+    setItems(getAdminCertificatesList());
+  }, []);
 
   // Generate form
   const [studentId, setStudentId] = React.useState("");
@@ -33,7 +43,18 @@ export function AdminCertificates() {
     ...internshipDomains.map((d) => ({ value: d.title, label: d.title })),
   ];
 
-  const studentOptions = certificateEligibleStudents.map((s) => ({
+  const allEligibleStudents = React.useMemo(() => {
+    const list = [...certificateEligibleStudents];
+    const registered = getAdminStudentsList();
+    for (const r of registered) {
+      if (!list.some((s) => s.id === r.id)) {
+        list.push({ id: r.id, name: r.name, course: r.domain });
+      }
+    }
+    return list;
+  }, []);
+
+  const studentOptions = allEligibleStudents.map((s) => ({
     value: s.id,
     label: `${s.name} — ${s.course}`,
   }));
@@ -44,7 +65,7 @@ export function AdminCertificates() {
       toast.error("All fields required", "Pick a student and a course.");
       return;
     }
-    const student = certificateEligibleStudents.find((s) => s.id === studentId);
+    const student = allEligibleStudents.find((s) => s.id === studentId);
     if (!student) return;
     submit(
       {
@@ -56,19 +77,13 @@ export function AdminCertificates() {
         endpoint: "/api/admin/certificate",
         successTitle: "Certificate generated!",
         successDescription: `Certificate for ${student.name} has been issued.`,
-        onSuccess: (_data, response) => {
-          // Generate a local cert entry to display
-          const year = new Date().getFullYear();
-          const rand = Math.floor(1000 + Math.random() * 9000);
-          const newCert: AdminCertificate = {
-            id: `ac-${Date.now()}`,
-            certificateId: `AVM-CERT-${year}-${rand}`,
+        onSuccess: () => {
+          const newCert = issueAdminCertificate({
             studentName: student.name,
             courseTitle,
             issueDate,
-            status: "Issued",
-          };
-          setItems((prev) => [newCert, ...prev]);
+          });
+          setItems(getAdminCertificatesList());
           setGenResult(newCert);
           setGenOpen(false);
           setStudentId("");

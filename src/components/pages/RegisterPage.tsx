@@ -1,19 +1,32 @@
 "use client";
 
 import * as React from "react";
-import { Eye, EyeOff, Lock, Mail, Phone, User, ArrowRight, CheckCircle2, GraduationCap } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  Phone,
+  User,
+  ArrowRight,
+  CheckCircle2,
+  GraduationCap,
+  AlertTriangle,
+  Clock,
+} from "lucide-react";
 import { AVMButton } from "@/components/site/AVMButton";
 import { Reveal } from "@/components/site/Reveal";
 import { FormField } from "@/components/site/FormField";
 import { useAVMToast } from "@/hooks/use-avm-toast";
 import { useFormSubmit } from "@/hooks/use-form-submit";
+import type { NavigateFn } from "@/lib/navigation";
 import {
   educationOptions,
   yearOfStudyOptions,
   domainOptions,
   hearAboutOptions,
 } from "@/lib/data";
-import type { NavigateFn } from "@/lib/navigation";
+import { registerStudentAccount, isEmailRegistered } from "@/lib/portal-store";
 
 interface RegisterPageProps {
   onNavigate: NavigateFn;
@@ -55,10 +68,18 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
   const [errors, setErrors] = React.useState<Partial<Record<keyof FormData, string>>>({});
   const [showPw, setShowPw] = React.useState(false);
   const [showConfirm, setShowConfirm] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [alreadyRegisteredNotice, setAlreadyRegisteredNotice] = React.useState<{
+    message: string;
+    status?: string;
+  } | null>(null);
 
   const set = (key: keyof FormData) => (value: string) => {
     setData((d) => ({ ...d, [key]: value }));
     setErrors((e) => ({ ...e, [key]: undefined }));
+    if (key === "email") {
+      setAlreadyRegisteredNotice(null);
+    }
   };
 
   const toggleTerms = () => {
@@ -69,8 +90,20 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
   const validate = () => {
     const errs: Partial<Record<keyof FormData, string>> = {};
     if (!data.fullName.trim()) errs.fullName = "Full name is required";
-    if (!data.email.trim()) errs.email = "Email is required";
-    else if (!EMAIL_RE.test(data.email)) errs.email = "Enter a valid email";
+    if (!data.email.trim()) {
+      errs.email = "Email is required";
+    } else if (!EMAIL_RE.test(data.email)) {
+      errs.email = "Enter a valid email";
+    } else {
+      const check = isEmailRegistered(data.email);
+      if (check.registered) {
+        errs.email = "This email is already registered.";
+        setAlreadyRegisteredNotice({
+          message: check.message || "An account with this email is already registered.",
+          status: check.status,
+        });
+      }
+    }
     if (!data.phone.trim()) errs.phone = "Phone is required";
     else if (!PHONE_RE.test(data.phone)) errs.phone = "Enter a valid phone number";
     if (!data.password) errs.password = "Password is required";
@@ -85,11 +118,14 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-    submit(
-      {
+    setSubmitting(true);
+
+    try {
+      // 1. Try local registration and duplicate validation
+      const regResult = registerStudentAccount({
         fullName: data.fullName,
         email: data.email,
         phone: data.phone,
@@ -98,17 +134,71 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
         yearOfStudy: data.yearOfStudy,
         preferredDomain: data.preferredDomain,
         hearAbout: data.hearAbout,
-      },
-      {
-        endpoint: "/api/register",
-        successTitle: "Registration successful!",
-        successDescription: "Please login with your new account.",
-        onSuccess: () => {
-          setData(initial);
-          onNavigate("login", { role: "student" });
-        },
+      });
+
+      if (!regResult.success && regResult.alreadyRegistered) {
+        setAlreadyRegisteredNotice({
+          message: regResult.error || "This email address is already registered.",
+          status: regResult.status,
+        });
+        setErrors((p) => ({ ...p, email: "This email is already registered." }));
+        toast.error(
+          "Already Registered!",
+          regResult.error || "This email is already registered. Please login or wait for approval."
+        );
+        setSubmitting(false);
+        return;
       }
-    );
+
+      // 2. Sync to API backend
+      let serverAlreadyRegistered = false;
+      let serverError = "";
+      try {
+        const res = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fullName: data.fullName,
+            email: data.email,
+            phone: data.phone,
+            password: data.password,
+            education: data.education,
+            yearOfStudy: data.yearOfStudy,
+            preferredDomain: data.preferredDomain,
+            hearAbout: data.hearAbout,
+          }),
+        });
+        const resData = await res.json().catch(() => ({}));
+        if (res.status === 409 || resData.alreadyRegistered) {
+          serverAlreadyRegistered = true;
+          serverError = resData.error;
+        }
+      } catch (err) {
+        console.warn("Backend API sync warning:", err);
+      }
+
+      if (serverAlreadyRegistered) {
+        setAlreadyRegisteredNotice({
+          message: serverError || "This email address is already registered. Please sign in.",
+        });
+        setErrors((p) => ({ ...p, email: "This email is already registered." }));
+        toast.error("Already Registered!", serverError || "This email is already registered.");
+        setSubmitting(false);
+        return;
+      }
+
+      toast.success(
+        "Registration Submitted! ⏳",
+        "Your account has been sent to Admin for review & approval. You can log in once approved."
+      );
+
+      setData(initial);
+      onNavigate("login", { role: "student" });
+    } catch {
+      toast.error("Registration failed", "Please verify your details and try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -142,6 +232,32 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
               Register to access internships, courses and verifiable certificates.
             </p>
           </div>
+
+          {/* Already Registered Alert Banner */}
+          {alreadyRegisteredNotice && (
+            <div className="mb-6 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200 animate-fadeIn">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 shrink-0 text-amber-400 mt-0.5" />
+                <div className="space-y-2 text-xs">
+                  <p className="font-semibold text-amber-300 text-sm">
+                    Account Already Registered
+                  </p>
+                  <p className="text-amber-200/90 leading-relaxed">
+                    {alreadyRegisteredNotice.message}
+                  </p>
+                  <div className="pt-1 flex flex-wrap items-center gap-2">
+                    <AVMButton
+                      size="sm"
+                      onClick={() => onNavigate("login", { role: "student" })}
+                      iconRight={<ArrowRight size={14} />}
+                    >
+                      Go to Login
+                    </AVMButton>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4" noValidate>
             <FormField
@@ -323,10 +439,10 @@ export function RegisterPage({ onNavigate }: RegisterPageProps) {
               <AVMButton
                 type="submit"
                 size="lg"
-                disabled={loading}
+                disabled={submitting || loading}
                 iconRight={<ArrowRight size={18} />}
               >
-                {loading ? "Registering..." : "Register"}
+                {submitting ? "Registering..." : "Register"}
               </AVMButton>
             </div>
           </form>

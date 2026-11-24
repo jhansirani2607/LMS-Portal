@@ -10,6 +10,8 @@ import {
   ClipboardList,
   ArrowRight,
   TrendingUp,
+  Clock,
+  AlertCircle,
 } from "lucide-react";
 import { AVMButton } from "@/components/site/AVMButton";
 import { Reveal } from "@/components/site/Reveal";
@@ -23,6 +25,7 @@ import {
   mentors,
   adminReports,
 } from "@/lib/data";
+import { getLiveAdminStats } from "@/lib/portal-store";
 import type { NavigateFn } from "@/lib/navigation";
 
 interface AdminDashboardProps {
@@ -30,15 +33,39 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
-  const pendingApps = adminApplications.filter((a) => a.status === "Pending");
+  const [liveStats, setLiveStats] = React.useState({
+    totalStudents: adminStudents.length,
+    activeStudents: adminStudents.filter((s) => s.status === "Active").length,
+    pendingStudents: adminStudents.filter((s) => s.status === "Pending").length,
+    totalMentors: mentors.length,
+    activeInternships: adminInternships.length,
+    pendingApplications: adminApplications.filter((a) => a.status === "Pending").length,
+    issuedCertificates: adminCertificates.length,
+    totalCourses: adminCourses.length,
+    pendingCourseRequests: 0,
+  });
+
+  React.useEffect(() => {
+    const sync = () => setLiveStats(getLiveAdminStats());
+    sync();
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("avm_store_updated", sync);
+      window.addEventListener("storage", sync);
+      return () => {
+        window.removeEventListener("avm_store_updated", sync);
+        window.removeEventListener("storage", sync);
+      };
+    }
+  }, []);
 
   const stats = [
-    { label: "Total Students", value: adminStudents.length, icon: Users, color: "from-[#6366f1] to-[#a855f7]", page: "admin-students" as const },
-    { label: "Total Mentors", value: mentors.length, icon: ClipboardList, color: "from-[#22d3ee] to-[#6366f1]", page: "admin-mentors" as const },
-    { label: "Active Internships", value: adminInternships.length, icon: Briefcase, color: "from-[#f59e0b] to-[#ef4444]", page: "admin-internships" as const },
-    { label: "Applications Pending", value: pendingApps.length, icon: FileText, color: "from-[#22c55e] to-[#10b981]", page: "admin-applications" as const },
-    { label: "Certificates Issued", value: adminCertificates.length, icon: Award, color: "from-[#a855f7] to-[#ec4899]", page: "admin-certificates" as const },
-    { label: "Courses", value: adminCourses.length, icon: BookOpen, color: "from-[#3b82f6] to-[#06b6d4]", page: "admin-courses" as const },
+    { label: "Total Students", value: liveStats.totalStudents, icon: Users, color: "from-[#6366f1] to-[#a855f7]", page: "admin-students" as const },
+    { label: "Total Mentors", value: liveStats.totalMentors, icon: ClipboardList, color: "from-[#22d3ee] to-[#6366f1]", page: "admin-mentors" as const },
+    { label: "Active Internships", value: liveStats.activeInternships, icon: Briefcase, color: "from-[#f59e0b] to-[#ef4444]", page: "admin-internships" as const },
+    { label: "Applications Pending", value: liveStats.pendingApplications, icon: FileText, color: "from-[#22c55e] to-[#10b981]", page: "admin-applications" as const },
+    { label: "Certificates Issued", value: liveStats.issuedCertificates, icon: Award, color: "from-[#a855f7] to-[#ec4899]", page: "admin-certificates" as const },
+    { label: "Courses", value: liveStats.totalCourses, icon: BookOpen, color: "from-[#3b82f6] to-[#06b6d4]", page: "admin-courses" as const },
   ];
 
   const maxApp = Math.max(...adminReports.applicationsPerDomain.map((d) => d.value));
@@ -65,6 +92,64 @@ export function AdminDashboard({ onNavigate }: AdminDashboardProps) {
           </AVMButton>
         </div>
       </Reveal>
+
+      {/* Pending Student Registrations Alert Banner */}
+      {liveStats.pendingStudents > 0 && (
+        <Reveal>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent p-4 text-amber-200 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <Clock size={20} />
+              </div>
+              <div>
+                <p className="font-heading font-semibold text-amber-300 text-sm">
+                  {liveStats.pendingStudents} New Student Registration{liveStats.pendingStudents > 1 ? "s" : ""} Awaiting Admin Approval
+                </p>
+                <p className="text-xs text-amber-200/80 mt-0.5">
+                  Students have signed up online. Accept and approve their accounts to grant them login access to their LMS courses.
+                </p>
+              </div>
+            </div>
+            <AVMButton
+              size="sm"
+              onClick={() => onNavigate("admin-students")}
+              className="bg-amber-500 hover:bg-amber-400 text-black font-semibold shrink-0"
+              iconRight={<ArrowRight size={14} />}
+            >
+              Review &amp; Approve
+            </AVMButton>
+          </div>
+        </Reveal>
+      )}
+
+      {/* Pending Course Requests Alert Banner */}
+      {liveStats.pendingCourseRequests > 0 && (
+        <Reveal>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-sky-500/40 bg-gradient-to-r from-sky-500/15 via-sky-500/10 to-transparent p-4 text-sky-200 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                <BookOpen size={20} />
+              </div>
+              <div>
+                <p className="font-heading font-semibold text-sky-300 text-sm">
+                  {liveStats.pendingCourseRequests} Course Enrollment Request{liveStats.pendingCourseRequests > 1 ? "s" : ""} Pending Review
+                </p>
+                <p className="text-xs text-sky-200/80 mt-0.5">
+                  Logged-in students requested enrollment into additional courses. Approve requests to grant immediate access.
+                </p>
+              </div>
+            </div>
+            <AVMButton
+              size="sm"
+              onClick={() => onNavigate("admin-courses")}
+              className="bg-sky-500 hover:bg-sky-400 text-black font-semibold shrink-0"
+              iconRight={<ArrowRight size={14} />}
+            >
+              Review Requests
+            </AVMButton>
+          </div>
+        </Reveal>
+      )}
 
       {/* Stats grid */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
