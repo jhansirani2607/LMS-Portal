@@ -1,0 +1,104 @@
+// AVM Smart Solutions — Prisma schema
+// SQLite database storing form submissions for the Internship & LMS platform.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String
+  message   String
+  type      String   @default("contact")
+  createdAt DateTime @default(now())
+}
+
+model InternshipApplication {
+  id          String   @id @default(cuid())
+  fullName    String
+  email       String
+  phone       String
+  education   String
+  fieldOfInterest String
+  internshipType  String
+  startDate   String
+  resumeName  String?
+  coverLetter String?
+  createdAt   DateTime @default(now())
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  role      String
+  rating    Int
+  service   String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model StudentRegistration {
+  id            String   @id @default(cuid())
+  fullName      String
+  email         String
+  phone         String
+  password      String
+  education     String
+  yearOfStudy   String
+  preferredDomain String
+  hearAbout     String
+  createdAt     DateTime @default(now())
+}
+
+model ProjectSubmission {
+  id          String   @id @default(cuid())
+  studentName String
+  email       String
+  projectId   String
+  projectTitle String
+  githubUrl   String
+  demoUrl     String?
+  description String
+  fileName    String?
+  createdAt   DateTime @default(now())
+}
+
+model MentorEvaluation {
+  id          String   @id @default(cuid())
+  mentorName  String
+  studentName String
+  assignmentTitle String
+  grade       String
+  feedback    String
+  createdAt   DateTime @default(now())
+}
+
+model MentorReview {
+  id          String   @id @default(cuid())
+  mentorName  String
+  studentName String
+  projectTitle String
+  rating      Int
+  feedback    String
+  status      String
+  createdAt   DateTime @default(now())
+}
+
+model Certificate {
+  id          String   @id @default(cuid())
+  certId      String
+  studentName String
+  courseTitle String
+  issueDate   String
+  issuedBy    String   @default("AVM Smart Solutions")
+  status      String   @default("Issued")
+  createdAt   DateTime @default(now())
+}

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 56" width="240" height="56" role="img" aria-label="AVM Smart Solutions">
+  <defs>
+    <linearGradient id="avmGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#a855f7"/>
+    </linearGradient>
+    <linearGradient id="avmText" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e0e7ff"/>
+    </linearGradient>
+  </defs>
+  <g>
+    <!-- Hexagon mark -->
+    <path d="M28 4 L48 15 L48 37 L28 48 L8 37 L8 15 Z" fill="none" stroke="url(#avmGrad)" stroke-width="2.5"/>
+    <path d="M28 4 L48 15 L48 37 L28 48 L8 37 L8 15 Z" fill="url(#avmGrad)" opacity="0.15"/>
+    <!-- A V M monogram -->
+    <text x="28" y="33" text-anchor="middle" font-family="'Segoe UI', Arial, sans-serif" font-size="17" font-weight="800" fill="url(#avmGrad)" letter-spacing="1">AVM</text>
+    <!-- circuit dot accents -->
+    <circle cx="8" cy="15" r="2" fill="#a855f7"/>
+    <circle cx="48" cy="37" r="2" fill="#6366f1"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="62" y="26" font-family="'Segoe UI', Arial, sans-serif" font-size="18" font-weight="700" fill="url(#avmText)">AVM Smart</text>
+  <text x="62" y="44" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="500" fill="#94a3b8" letter-spacing="3">SOLUTIONS</text>
+</svg>
